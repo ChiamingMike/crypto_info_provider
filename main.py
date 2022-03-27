@@ -1,5 +1,6 @@
+from Assistant import Assistant
 from provider import PriceProvider
-from provider import option_list_with_index
+
 from flask import Flask, request, abort
 import os
 
@@ -51,26 +52,30 @@ def handle_message(event):
     receive_message = event.message.text
     crypto_list = ['BTC', 'ETH']
     currency_list = ['USD', 'JPY']
-    for one_list in [crypto_list, currency_list]:
-        option_list_with_index(one_list)
-    # input_value = input('(i.e:01,10,11,00)\r\nPlease enter the number...')
-    try:
-        crypto_index = int(receive_message[0])
-        currency_index = int(receive_message[-1])
-    except Exception as e:
-        # error
-        print(e)
 
-    if len(crypto_list) >= crypto_index and \
-            len(currency_list) >= currency_index:
-        price_provider = PriceProvider()
-        time = price_provider.get_request_time()
-        crypto_name = crypto_list[crypto_index]
-        currency_name = currency_list[currency_index]
-        price = price_provider.get_price(crypto_name, currency_name)
-        url = price_provider.url
-        reply_message = f'{time}\r\n{crypto_name}:{price} {currency_name}\r\n{url}'
-        print(reply_message)
+    if receive_message.isalpha() and receive_message.upper() == 'HELP':
+        text_list = ['0:BTC 1:ETH ',
+                     '0:USD 1:JPY ']
+        assistant = Assistant()
+        reply_message = assistant.get_help_message(text_list)
+    else:
+        try:
+            crypto_index = int(receive_message[0])
+            currency_index = int(receive_message[-1])
+        except Exception as e:
+            # error
+            print(e)
+
+        if len(crypto_list) >= crypto_index and \
+                len(currency_list) >= currency_index:
+            price_provider = PriceProvider()
+            time = price_provider.get_request_time()
+            crypto_name = crypto_list[crypto_index]
+            currency_name = currency_list[currency_index]
+            price = price_provider.get_price(crypto_name, currency_name)
+            url = price_provider.url
+            reply_message = f'{time}\r\n{crypto_name}:{price} {currency_name}\r\n{url}'
+            print(reply_message)
 
     line_bot_api.reply_message(
         event.reply_token,

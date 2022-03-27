@@ -41,12 +41,5 @@ class PriceProvider(object):
         return self.practical_url
 
 
-def option_list_with_index(list):
-    print('*'*12)
-    for i, x in enumerate(list):
-        print(f'{i}:{x}')
-    print('*'*12)
-
-
 if __name__ == '__main__':
     pass
