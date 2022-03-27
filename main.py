@@ -1,62 +1,58 @@
-import datetime
-import requests
-from bs4 import BeautifulSoup
+from flask import Flask, request, abort
+
+from linebot import (
+    LineBotApi, WebhookHandler
+)
+from linebot.exceptions import (
+    InvalidSignatureError
+)
+from linebot.models import (
+    FollowEvent, MessageEvent, TextMessage, TextSendMessage, ImageMessage, ImageSendMessage, TemplateSendMessage, ButtonsTemplate, PostbackTemplateAction, MessageTemplateAction, URITemplateAction
+)
+import os
+
+from Provider import PriceProvider
+from Provider import option_list_with_index
+
+app = Flask(__name__)
 
 
-class PriceProvider(object):
+LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
+LINE_CHANNEL_SECRET = os.environ["LINE_CHANNEL_SECRET"]
 
-    def __init__(self) -> None:
-        """
-        """
-        self.__url = 'https://www.google.com/finance/quote/SEARCH_TARGET'
-        self.practical_url = str()
-
-        return None
-
-    def get_request_time(self) -> None:
-        """
-        """
-        time = datetime.datetime.now(
-            datetime.timezone(datetime.timedelta(hours=9)))
-        request_time = time.strftime('%y-%m-%d %H:%M:%S')
-
-        return request_time
-
-    def get_price(self, crypto_name: str, currency_name: str) -> str:
-        """
-        """
-        # getting the request from url
-        search_target = f'{crypto_name}-{currency_name}'
-        self.practical_url = self.__url.replace('SEARCH_TARGET', search_target)
-        data = requests.get(self.practical_url)
-
-        soup = BeautifulSoup(data.text, 'html.parser')
-
-        price = soup.find("div", attrs={'class': 'YMlKec fxKbKc'}).text
-
-        return price
-
-    @property
-    def url(self) -> str:
-        return self.practical_url
+line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
 
-def list_with_index(list):
-    print('*'*12)
-    for i, x in enumerate(list):
-        print(f'{i}:{x}')
-    print('*'*12)
+@app.route("/callback", methods=['POST'])
+def callback():
+    # get X-Line-Signature header value
+    signature = request.headers['X-Line-Signature']
 
+    # get request body as text
+    body = request.get_data(as_text=True)
+    app.logger.info("Request body: " + body)
 
-if __name__ == '__main__':
+    # handle webhook body
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+
+    return 'OK'
+
+# MessageEvent
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
     crypto_list = ['BTC', 'ETH']
     currency_list = ['USD', 'JPY']
     for one_list in [crypto_list, currency_list]:
-        list_with_index(one_list)
-    input_value = input('(i.e:01,10,11,00)\r\nPlease enter the number...')
+        option_list_with_index(one_list)
+    receive_message = event.message.text
+    # input_value = input('(i.e:01,10,11,00)\r\nPlease enter the number...')
     try:
-        crypto_index = int(input_value[0])
-        currency_index = int(input_value[-1])
+        crypto_index = int(receive_message[0])
+        currency_index = int(receive_message[-1])
     except Exception as e:
         # error
         print(e)
@@ -69,5 +65,15 @@ if __name__ == '__main__':
         currency_name = currency_list[currency_index]
         price = price_provider.get_price(crypto_name, currency_name)
         url = price_provider.url
-        print(
-            f'{time}\r\n{crypto_name}:{price} {currency_name}\r\n{url}')
+        reply_message = f'{time}\r\n{crypto_name}:{price} {currency_name}\r\n{url}'
+        print(reply_message)
+
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=reply_message)
+    )
+
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT"))
+    app.run(host="0.0.0.0", port=port)
